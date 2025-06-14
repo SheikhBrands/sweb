@@ -1,104 +1,142 @@
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Users, Package, BarChart3, Upload } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import React, { useState, useEffect } from 'react';
+import { Users, Package, ShoppingCart, TrendingUp, Plus, Edit, Trash2, Search } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Product } from '../contexts/CartContext';
 import { uploadToCloudinary } from '../config/cloudinary';
-import toast from 'react-hot-toast';
 
 const Admin: React.FC = () => {
-  const { products, addProduct, updateProduct, deleteProduct, user } = useStore();
-  const [activeTab, setActiveTab] = useState<'products' | 'users' | 'analytics'>('products');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  
-  const [formData, setFormData] = useState({
+  const { userData } = useAuth();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productForm, setProductForm] = useState({
     name: '',
-    price: '',
+    price: 0,
     description: '',
     category: '',
-    stock: '',
-    featured: false,
+    stock: 0,
     image: ''
   });
 
-  // Check if user is admin
-  if (!user || user.role !== 'admin') {
+  // Mock data - in a real app, this would come from Firebase
+  useEffect(() => {
+    const mockProducts: Product[] = [
+      {
+        id: '1',
+        name: 'Wireless Headphones',
+        price: 199.99,
+        image: 'https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg?auto=compress&cs=tinysrgb&w=500',
+        description: 'Premium wireless headphones with noise cancellation.',
+        category: 'Electronics',
+        stock: 15
+      },
+      {
+        id: '2',
+        name: 'Smart Watch',
+        price: 299.99,
+        image: 'https://images.pexels.com/photos/393047/pexels-photo-393047.jpeg?auto=compress&cs=tinysrgb&w=500',
+        description: 'Feature-rich smartwatch with health tracking.',
+        category: 'Electronics',
+        stock: 8
+      }
+    ];
+
+    const mockUsers = [
+      {
+        id: '1',
+        displayName: 'John Doe',
+        email: 'john@example.com',
+        role: 'user',
+        createdAt: '2024-01-15',
+        status: 'active'
+      },
+      {
+        id: '2',
+        displayName: 'Jane Smith',
+        email: 'jane@example.com',
+        role: 'user',
+        createdAt: '2024-01-10',
+        status: 'active'
+      }
+    ];
+
+    setProducts(mockProducts);
+    setUsers(mockUsers);
+  }, []);
+
+  if (userData?.role !== 'admin') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pt-20 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <div className="text-6xl mb-4">🔒</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
           <p className="text-gray-600">You don't have permission to access this page.</p>
         </div>
       </div>
     );
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      const imageUrl = await uploadToCloudinary(file);
-      setFormData({ ...formData, image: imageUrl });
-      toast.success('Image uploaded successfully!');
-    } catch (error) {
-      toast.error('Failed to upload image');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const productData = {
-      ...formData,
-      price: parseFloat(formData.price),
-      stock: parseInt(formData.stock),
-      id: editingProduct?.id || Date.now().toString(),
-      createdAt: editingProduct?.createdAt || new Date()
-    };
-
     if (editingProduct) {
-      updateProduct(editingProduct.id, productData);
-      toast.success('Product updated successfully!');
+      // Update existing product
+      setProducts(prev => prev.map(p => 
+        p.id === editingProduct.id 
+          ? { ...p, ...productForm }
+          : p
+      ));
     } else {
-      addProduct(productData);
-      toast.success('Product added successfully!');
+      // Add new product
+      const newProduct: Product = {
+        id: Date.now().toString(),
+        ...productForm
+      };
+      setProducts(prev => [...prev, newProduct]);
     }
 
-    setIsModalOpen(false);
+    setShowProductModal(false);
     setEditingProduct(null);
-    setFormData({
+    setProductForm({
       name: '',
-      price: '',
+      price: 0,
       description: '',
       category: '',
-      stock: '',
-      featured: false,
+      stock: 0,
       image: ''
     });
   };
 
-  const handleEdit = (product: any) => {
-    setEditingProduct(product);
-    setFormData({
-      name: product.name,
-      price: product.price.toString(),
-      description: product.description,
-      category: product.category,
-      stock: product.stock.toString(),
-      featured: product.featured,
-      image: product.image
-    });
-    setIsModalOpen(true);
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const imageUrl = await uploadToCloudinary(file);
+        setProductForm(prev => ({ ...prev, image: imageUrl }));
+      } catch (error) {
+        console.error('Error uploading image:', error);
+      }
+    }
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      deleteProduct(id);
-      toast.success('Product deleted successfully!');
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setProductForm({
+      name: product.name,
+      price: product.price,
+      description: product.description,
+      category: product.category,
+      stock: product.stock,
+      image: product.image
+    });
+    setShowProductModal(true);
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    if (confirm('Are you sure you want to delete this product?')) {
+      setProducts(prev => prev.filter(p => p.id !== id));
     }
   };
 
@@ -106,185 +144,267 @@ const Admin: React.FC = () => {
     {
       title: 'Total Products',
       value: products.length,
-      icon: <Package className="w-6 h-6" />,
-      color: 'from-blue-500 to-blue-600'
+      icon: <Package className="w-8 h-8 text-blue-600" />,
+      color: 'bg-blue-100'
     },
     {
-      title: 'Featured Products',
-      value: products.filter(p => p.featured).length,
-      icon: <BarChart3 className="w-6 h-6" />,
-      color: 'from-green-500 to-green-600'
+      title: 'Total Users',
+      value: users.length,
+      icon: <Users className="w-8 h-8 text-green-600" />,
+      color: 'bg-green-100'
     },
     {
-      title: 'Total Stock',
-      value: products.reduce((sum, p) => sum + p.stock, 0),
-      icon: <Package className="w-6 h-6" />,
-      color: 'from-purple-500 to-purple-600'
+      title: 'Total Orders',
+      value: 156,
+      icon: <ShoppingCart className="w-8 h-8 text-purple-600" />,
+      color: 'bg-purple-100'
     },
     {
-      title: 'Categories',
-      value: new Set(products.map(p => p.category)).size,
-      icon: <BarChart3 className="w-6 h-6" />,
-      color: 'from-orange-500 to-orange-600'
+      title: 'Revenue',
+      value: '$12,450',
+      icon: <TrendingUp className="w-8 h-8 text-orange-600" />,
+      color: 'bg-orange-100'
     }
   ];
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 pt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Add Product
-          </button>
+          <p className="text-gray-600">Manage your ecommerce platform</p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-2xl shadow-lg p-6 hover:shadow-xl transition-shadow duration-300"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm">{stat.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center text-white`}>
-                  {stat.icon}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {stats.map((stat, index) => (
+              <div key={index} className="bg-white rounded-2xl shadow-lg p-6">
+                <div className="flex items-center">
+                  <div className={`${stat.color} p-3 rounded-lg`}>
+                    {stat.icon}
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-lg mb-8">
+        <div className="bg-white rounded-2xl shadow-lg">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
+            <nav className="flex space-x-8 p-6">
               {[
-                { id: 'products', label: 'Products', icon: <Package className="w-5 h-5" /> },
-                { id: 'users', label: 'Users', icon: <Users className="w-5 h-5" /> },
-                { id: 'analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> }
+                { id: 'overview', label: 'Overview' },
+                { id: 'products', label: 'Products' },
+                { id: 'users', label: 'Users' },
+                { id: 'orders', label: 'Orders' }
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`py-4 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`font-medium pb-2 border-b-2 transition-colors duration-200 ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                      ? 'text-blue-600 border-blue-600'
+                      : 'text-gray-500 border-transparent hover:text-gray-700'
                   }`}
                 >
-                  {tab.icon}
-                  <span>{tab.label}</span>
+                  {tab.label}
                 </button>
               ))}
             </nav>
           </div>
 
           <div className="p-6">
+            {/* Products Tab */}
             {activeTab === 'products' && (
-              <div className="space-y-4">
-                {products.map((product) => (
-                  <div
-                    key={product.id}
-                    className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-gray-900">Products</h2>
+                  <button
+                    onClick={() => setShowProductModal(true)}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:shadow-lg transform hover:scale-105 transition-all duration-300"
                   >
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-16 h-16 object-cover rounded-lg"
-                    />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{product.name}</h3>
-                      <p className="text-gray-600 text-sm">{product.category}</p>
-                      <p className="text-blue-600 font-bold">${product.price}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600">Stock: {product.stock}</p>
-                      {product.featured && (
-                        <span className="inline-block bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
-                          Featured
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id, product.name)}
-                        className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <Plus className="w-4 h-4" />
+                    <span>Add Product</span>
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full table-auto">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Product</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Category</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Price</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Stock</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((product) => (
+                        <tr key={product.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-3">
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-12 h-12 object-cover rounded-lg"
+                              />
+                              <div>
+                                <p className="font-medium text-gray-900">{product.name}</p>
+                                <p className="text-sm text-gray-600">{product.description.substring(0, 50)}...</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-gray-900">{product.category}</td>
+                          <td className="py-3 px-4 text-gray-900">${product.price}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              product.stock > 10 ? 'bg-green-100 text-green-800' :
+                              product.stock > 0 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {product.stock}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleEditProduct(product)}
+                                className="text-blue-600 hover:text-blue-700 transition-colors duration-200"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteProduct(product.id)}
+                                className="text-red-600 hover:text-red-700 transition-colors duration-200"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Users Tab */}
+            {activeTab === 'users' && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-gray-900">Users</h2>
+                  <div className="flex items-center space-x-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                      <input
+                        type="text"
+                        placeholder="Search users..."
+                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
 
-            {activeTab === 'users' && (
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">User Management</h3>
-                <p className="text-gray-600">User management features coming soon...</p>
-              </div>
-            )}
-
-            {activeTab === 'analytics' && (
-              <div className="text-center py-12">
-                <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Analytics Dashboard</h3>
-                <p className="text-gray-600">Analytics features coming soon...</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full table-auto">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">User</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Role</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Joined</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {users.map((user) => (
+                        <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
+                                {user.displayName.charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900">{user.displayName}</p>
+                                <p className="text-sm text-gray-600">{user.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-900">{user.createdAt}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                              {user.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex space-x-2">
+                              <button className="text-blue-600 hover:text-blue-700 transition-colors duration-200">
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button className="text-red-600 hover:text-red-700 transition-colors duration-200">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Add/Edit Product Modal */}
-        {isModalOpen && (
+        {/* Product Modal */}
+        {showProductModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
-              </h2>
+              </h3>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleProductSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product Name
                   </label>
                   <input
                     type="text"
+                    value={productForm.name}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, name: e.target.value }))}
                     required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price ($)
+                    Price
                   </label>
                   <input
                     type="number"
                     step="0.01"
+                    value={productForm.price}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, price: parseFloat(e.target.value) }))}
                     required
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -294,23 +414,23 @@ const Admin: React.FC = () => {
                   </label>
                   <input
                     type="text"
+                    value={productForm.category}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, category: e.target.value }))}
                     required
-                    value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Stock Quantity
+                    Stock
                   </label>
                   <input
                     type="number"
+                    value={productForm.stock}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, stock: parseInt(e.target.value) }))}
                     required
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -319,11 +439,11 @@ const Admin: React.FC = () => {
                     Description
                   </label>
                   <textarea
+                    value={productForm.description}
+                    onChange={(e) => setProductForm(prev => ({ ...prev, description: e.target.value }))}
                     required
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
@@ -331,66 +451,43 @@ const Admin: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product Image
                   </label>
-                  <div className="space-y-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {isUploading && (
-                      <div className="flex items-center text-blue-600">
-                        <Upload className="w-4 h-4 mr-2 animate-spin" />
-                        <span className="text-sm">Uploading...</span>
-                      </div>
-                    )}
-                    {formData.image && (
-                      <img
-                        src={formData.image}
-                        alt="Preview"
-                        className="w-20 h-20 object-cover rounded-lg"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center">
                   <input
-                    type="checkbox"
-                    id="featured"
-                    checked={formData.featured}
-                    onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  <label htmlFor="featured" className="ml-2 text-sm text-gray-700">
-                    Featured Product
-                  </label>
+                  {productForm.image && (
+                    <img
+                      src={productForm.image}
+                      alt="Preview"
+                      className="mt-2 w-20 h-20 object-cover rounded-lg"
+                    />
+                  )}
                 </div>
 
                 <div className="flex space-x-4 pt-4">
                   <button
                     type="submit"
-                    disabled={isUploading}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50"
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 rounded-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-300"
                   >
-                    {editingProduct ? 'Update Product' : 'Add Product'}
+                    {editingProduct ? 'Update' : 'Add'} Product
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      setIsModalOpen(false);
+                      setShowProductModal(false);
                       setEditingProduct(null);
-                      setFormData({
+                      setProductForm({
                         name: '',
-                        price: '',
+                        price: 0,
                         description: '',
                         category: '',
-                        stock: '',
-                        featured: false,
+                        stock: 0,
                         image: ''
                       });
                     }}
-                    className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:border-gray-400 transition-colors"
+                    className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-400 transition-colors duration-200"
                   >
                     Cancel
                   </button>

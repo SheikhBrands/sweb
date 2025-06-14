@@ -1,68 +1,64 @@
 import React from 'react';
-import { ShoppingCart, Eye } from 'lucide-react';
-import { Product } from '../../store/useStore';
-import { useStore } from '../../store/useStore';
-import toast from 'react-hot-toast';
+import { ShoppingCart, Heart, Eye } from 'lucide-react';
+import { Product } from '../../contexts/CartContext';
+import { useCart } from '../../contexts/CartContext';
 
 interface ProductCardProps {
   product: Product;
-  onView?: (product: Product) => void;
+  onQuickView?: (product: Product) => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onView }) => {
-  const { addToCart } = useStore();
+const ProductCard: React.FC<ProductCardProps> = ({ product, onQuickView }) => {
+  const { addItem } = useCart();
 
-  const handleAddToCart = () => {
-    addToCart(product);
-    toast.success(`${product.name} added to cart!`);
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    addItem(product);
   };
 
   return (
-    <div className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 hover:rotate-1 overflow-hidden">
-      {/* Product Image */}
-      <div className="relative overflow-hidden rounded-t-2xl">
+    <div className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2 overflow-hidden product-card">
+      {/* Image Container */}
+      <div className="relative overflow-hidden rounded-t-2xl aspect-square">
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-110"
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
-        {/* Quick Actions */}
-        <div className="absolute top-4 right-4 space-y-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-4 group-hover:translate-x-0">
+        {/* Overlay Actions */}
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center space-x-4">
           <button
-            onClick={() => onView?.(product)}
-            className="w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors shadow-lg"
+            onClick={(e) => {
+              e.preventDefault();
+              onQuickView?.(product);
+            }}
+            className="bg-white/90 p-3 rounded-full hover:bg-white transition-colors duration-200 transform hover:scale-110"
           >
-            <Eye className="w-4 h-4 text-gray-700" />
+            <Eye className="w-5 h-5 text-gray-700" />
           </button>
-          <button
-            onClick={handleAddToCart}
-            className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors shadow-lg"
-          >
-            <ShoppingCart className="w-4 h-4 text-white" />
+          <button className="bg-white/90 p-3 rounded-full hover:bg-white transition-colors duration-200 transform hover:scale-110">
+            <Heart className="w-5 h-5 text-gray-700" />
           </button>
         </div>
 
-        {/* Featured Badge */}
-        {product.featured && (
-          <div className="absolute top-4 left-4">
-            <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-              Featured
-            </span>
-          </div>
-        )}
+        {/* Badge */}
+        <div className="absolute top-4 left-4">
+          <span className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+            New
+          </span>
+        </div>
       </div>
 
-      {/* Product Info */}
+      {/* Content */}
       <div className="p-6">
         <div className="mb-2">
-          <span className="text-xs font-medium text-blue-600 uppercase tracking-wide">
+          <span className="text-sm text-blue-600 font-medium uppercase tracking-wide">
             {product.category}
           </span>
         </div>
         
-        <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+        <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors duration-200">
           {product.name}
         </h3>
         
@@ -71,26 +67,27 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onView }) => {
         </p>
 
         <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-2xl font-bold text-gray-900">
-              ${product.price.toFixed(2)}
-            </span>
-            <span className="text-xs text-gray-500">
-              {product.stock} in stock
-            </span>
+          <div className="text-2xl font-bold text-gray-900">
+            ${product.price.toFixed(2)}
           </div>
           
           <button
             onClick={handleAddToCart}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:shadow-lg transform hover:scale-105 transition-all duration-300"
           >
-            Add to Cart
+            <ShoppingCart className="w-4 h-4" />
+            <span className="font-medium">Add to Cart</span>
           </button>
         </div>
-      </div>
 
-      {/* 3D Hover Effect */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+        {/* Stock Status */}
+        <div className="mt-3 flex items-center">
+          <div className={`w-2 h-2 rounded-full mr-2 ${product.stock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <span className={`text-sm ${product.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+          </span>
+        </div>
+      </div>
     </div>
   );
 };

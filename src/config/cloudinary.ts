@@ -2,7 +2,6 @@ export const CLOUDINARY_CONFIG = {
   cloudName: 'your-cloud-name', // Replace with your Cloudinary cloud name
   uploadPreset: 'your-upload-preset', // Replace with your upload preset
   apiKey: 'your-api-key', // Replace with your API key
-  apiSecret: 'your-api-secret' // Replace with your API secret
 };
 
 export const uploadToCloudinary = async (file: File): Promise<string> => {
@@ -23,6 +22,6 @@ export const uploadToCloudinary = async (file: File): Promise<string> => {
     return data.secure_url;
   } catch (error) {
     console.error('Error uploading to Cloudinary:', error);
-    throw new Error('Failed to upload image');
+    throw error;
   }
 };
